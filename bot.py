@@ -3,37 +3,38 @@ import pyautogui
 from PIL import Image
 from ultralytics import YOLO
 import time
+from Quartz.CoreGraphics import CGEventCreateMouseEvent, CGEventPost, kCGHIDEventTap
+from Quartz.CoreGraphics import kCGEventRightMouseDown, kCGEventRightMouseUp, kCGMouseButtonRight
+import Quartz
 
+# Performs actions based on detected objects
 def run_bot(decision):
-    # Performs actions based on detected objects
-    if "tree location" in decision:
+    
+    distance_object = 1000
+    
+    
+    if "stick location" in decision:
         pyautogui.press('1')
-        pyautogui.moveTo(decision["tree location"])
-        pyautogui.rightClick()
-        print("Going to tree")
-        time.sleep(6)
-        pyautogui.mouseDown(decision["tree location"])
-        print("Chopping tree down")
-    elif "stick location" in decision:
+        pyautogui.moveTo(decision["stick location"])
+        pyautogui.mouseDown(button='right')
+        pyautogui.mouseUp(button='right')
+        print("Moving to stick")
+        distance_object = decision["stick distance"]
+    # elif "rock location" in decision:
+    #     pyautogui.press('4')
+    #     pyautogui.rightClick(decision["rock location"])
+    #     time.sleep(6)
+    #     pyautogui.leftClick(decision["rock location"])
+    # elif "weed location" in decision:
+    #     pyautogui.press('5')
+    #     pyautogui.rightClick(decision["weed location"])
+    #     time.sleep(6)
+    #     pyautogui.leftClick(decision["weed location"])
+        
+    if distance_object < 100:
         pyautogui.press('1')
-        pyautogui.rightClick(decision["stick location"])
-        time.sleep(6)
-        pyautogui.mouseDown(decision["stick location"])
-    elif "rock location" in decision:
-        pyautogui.press('4')
-        pyautogui.rightClick(decision["rock location"])
-        time.sleep(6)
-        pyautogui.mouseDown(decision["rock location"])
-    elif "weed location" in decision:
-        pyautogui.press('5')
-        pyautogui.rightClick(decision["weed location"])
-        time.sleep(6)
-        pyautogui.mouseDown(decision["weed location"])
-    elif "tree stump location" in decision:
-        pyautogui.press('1')
-        pyautogui.rightClick(decision["tree stump location"])
-        time.sleep(6)
-        pyautogui.mouseDown(decision["tree stump location"])
+        pyautogui.press('c')
+        print("chopping stick")
 
 
 screen_width, screen_height = pyautogui.size()
@@ -57,7 +58,6 @@ def take_screenshot(stop_event, model):
 
         # Take screenshot
         screenshot = pyautogui.screenshot()
-        # screenshot = Image.frombytes('RGB', screenshot.size, screenshot.tobytes())
 
         results = model([screenshot], conf=0.7)
         boxes = results[0].boxes.xyxy.tolist()
@@ -70,70 +70,84 @@ def take_screenshot(stop_event, model):
     
             center_x = (x1+x2) / 2
             center_y = (y1+y2) / 2
+            
+            # YOLO coordinates (image pixels)
+            center_x = (x1 + x2) / 2
+            center_y = (y1 + y2) / 2
 
-            confidence = conf
-            detected_class = cls
+            # --- START: convert to screen coordinates ---
+            img_width, img_height = screenshot.size
+            scale_x = screen_width / img_width
+            scale_y = screen_height / img_height
+
+            screen_x = center_x * scale_x
+            screen_y = center_y * scale_y
+
             name = names[int(cls)]
-    
-            if name == "tree":
-                decision["tree"] = True
-                # euclidean distance
-                distance = ((center_x - screenx_center) ** 2 + (center_y - screeny_center) **2) **.5
-                if "tree location" in decision:
-                    # Calculate if closer
-                    if distance < decision["tree distance"]:
-                        decision["tree location"] = (center_x, center_y)
-                        decision["tree distance"] = distance
-                else:
-                    decision["tree location"] = (center_x, center_y)
-                    decision["tree distance"] = distance
-            elif name == "stick":
+                    
+            if name == "stick":
                 decision["stick"] = True
                 # euclidean distance
-                distance = ((center_x - screenx_center) ** 2 + (center_y - screeny_center) **2) **.5
+                distance = ((screen_x - screenx_center) ** 2 + (screen_y - screeny_center) **2) **.5
                 if "stick location" in decision:
                     if distance < decision["stick distance"]:
-                        decision["stick location"] = (center_x, center_y)
+                        decision["stick location"] = (screen_x, screen_y)
                         decision["stick distance"] = distance
                 else:
-                    decision["stick location"] = (center_x, center_y)
+                    decision["stick location"] = (screen_x, screen_y)
                     decision["stick distance"] = distance
+                    
             elif name == "rock":
                 decision["rock"] = True
                 # euclidean distance
-                distance = ((center_x - screenx_center) ** 2 + (center_y - screeny_center) **2) **.5
+                distance = ((screen_x - screenx_center) ** 2 + (screen_y - screeny_center) **2) **.5
                 if "rock location" in decision:
                     # Calculate if closer
                     if distance < decision["rock distance"]:
-                        decision["rock location"] = (center_x, center_y)
+                        decision["rock location"] = (screen_x, screen_y)
                         decision["rock distance"] = distance
                 else:
-                    decision["rock location"] = (center_x, center_y)
+                    decision["rock location"] = (screen_x, screen_y)
                     decision["rock distance"] = distance
+                    
             elif name == "weed":
                 decision["weed"] = True
                 # euclidean distance
-                distance = ((center_x - screenx_center) ** 2 + (center_y - screeny_center) **2) **.5
+                distance = ((screen_x - screenx_center) ** 2 + (screen_y - screeny_center) **2) **.5
                 if "weed location" in decision:
                     # Calculate if closer
                     if distance < decision["weed distance"]:
-                        decision["weed location"] = (center_x, center_y)
+                        decision["weed location"] = (screen_x, screen_y)
                         decision["weed distance"] = distance
                 else:
-                    decision["weed location"] = (center_x, center_y)
+                    decision["weed location"] = (screen_x, screen_y)
                     decision["weed distance"] = distance
+                    
             elif name == "tree stump":
                 decision["tree stump"] = True
                 # euclidean distance
-                distance = ((center_x - screenx_center) ** 2 + (center_y - screeny_center) **2) **.5
+                distance = ((screen_x - screenx_center) ** 2 + (screen_y - screeny_center) **2) **.5
                 if "tree stump location" in decision:
                     # Calculate if closer
                     if distance < decision["tree stump distance"]:
-                        decision["tree stump location"] = (center_x, center_y)
+                        decision["tree stump location"] = (screen_x, screen_y)
                         decision["tree stump distance"] = distance
                 else:
-                    decision["weed location"] = (center_x, center_y)
+                    decision["weed location"] = (screen_x, screen_y)
                     decision["weed distance"] = distance
+                    
+            elif name == "tree":
+                decision["tree"] = True
+                # euclidean distance
+                distance = ((screen_x - screenx_center) ** 2 + (screen_y - screeny_center) **2) **.5
+                if "tree location" in decision:
+                    # Calculate if closer
+                    if distance < decision["tree distance"]:
+                        decision["tree location"] = (screen_x, screen_y)
+                        decision["tree distance"] = distance
+                else:
+                    decision["tree location"] = (screen_x, screen_y)
+                    decision["tree distance"] = distance
                     
         run_bot(decision)
 
